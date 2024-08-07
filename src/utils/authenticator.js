@@ -10,7 +10,7 @@ const authenticator = (req, res, next) => {
 
   try {
     const user_details = decode_token(token);
-    if (user_details._id !== Number(user_id)) throw new Error("Wrong User Id");
+    if (user_details.id !== Number(user_id)) throw new Error("Wrong User Id");
     req.user = user_details;
     next();
   } catch (error) {
