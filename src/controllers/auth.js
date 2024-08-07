@@ -1,12 +1,17 @@
+//model imports
+import User from "../models/postgres/User.js";
+import Otp from "../models/mongodb/Otp.js";
+
+//utils import
 import response_structure from "../utils/response.js";
 import { create_token, decode_token } from "../utils/web_tokens.js";
 import { compare, encrypt, generate_otp } from "../utils/password.js";
-import User from "../models/postgres/User.js";
-import Otp from "../models/mongodb/Otp.js";
-import { Op } from "sequelize";
 import { send_email, send_message_to_phone } from "../utils/send_messages.js";
-import { combineTableNames } from "sequelize/lib/utils";
 
+//module imports
+import { Op } from "sequelize";
+
+// constant variables
 const email_regex = /^[a-z0-9]+@[a-z]+\.[a-z]{2,3}$/;
 const phone_number_regex = /^(\+?\d{1,2}\s?)?(\(?\d{3}\)?[\s.-]?)?\d{3}[\s.-]?\d{4}$/;
 

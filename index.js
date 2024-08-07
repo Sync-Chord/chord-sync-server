@@ -39,9 +39,11 @@ app.get("/health_check", (req, res) => {
 
 //routes import
 import auth_route from "./src/routes/auth.js";
+import playlist_route from "./src/routes/playlist.js";
 
 //routes
 app.use("/auth", auth_route);
+app.use("/auth", playlist_route);
 
 //server
 app.listen(process.env.PORT, () => {
