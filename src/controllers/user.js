@@ -1,6 +1,7 @@
-import User from "../models/postgres/User";
-import Friend from "../models/postgres/Friends";
+import User from "../models/postgres/User.js";
+import Friend from "../models/postgres/Friends.js";
 import { Op, where } from "sequelize";
+import response_structure from "../utils/response.js";
 
 export const edit_user_profile = async (data, cb) => {
   try {
@@ -74,30 +75,28 @@ export const edit_user_profile = async (data, cb) => {
 
 export const send_friend_request = async (data, cb) => {
   try {
-    if (!data.following) throw new Error("Id Missing");
+    if (!data.following) throw new Error("Following ID is missing");
 
-    const found = await User.findOne({
+    const found = await Friend.findOne({
       where: {
-        [Op.and]: [
-          {
-            [Op.or]: [{ following: data.following }, { follower: data.user.id }],
-          },
-          {
-            [Op.or]: [{ follower: data.following }, { following: data.user.id }],
-          },
+        [Op.or]: [
+          { follower: data.user.id, following: data.following },
+          { follower: data.following, following: data.user.id },
         ],
       },
     });
 
     if (found && found.is_friend) {
-      throw new Error("Alreday added to your friend list");
+      throw new Error("Already added to your friend list");
     }
 
-    if (found && !found.is_friend && found.follower === data.user.id)
+    if (found && !found.is_friend && found.follower === data.user.id) {
       throw new Error("Request already sent");
+    }
 
-    if (found && !found.is_friend && found.following === data.user.id)
+    if (found && !found.is_friend && found.following === data.user.id) {
       throw new Error("Friend request already sent from user to you");
+    }
 
     const new_request = new Friend({
       follower: data.user.id,
@@ -135,7 +134,7 @@ export const send_friend_request = async (data, cb) => {
 
 export const accept_request = async (data, cb) => {
   try {
-    if (!data.request_id || !data.hasOwnProperty(data.is_friend)) throw new Error("Params missing");
+    if (!data.request_id || !data.hasOwnProperty("is_friend")) throw new Error("Params missing");
 
     const found = await Friend.findOne({
       where: {
@@ -159,6 +158,7 @@ export const accept_request = async (data, cb) => {
         }
       );
     } else {
+      // Reject the friend request
       await Friend.destroy({
         where: {
           id: data.request_id,
@@ -172,7 +172,7 @@ export const accept_request = async (data, cb) => {
         .merge({
           success: true,
           status: 200,
-          action: "send_friend_request",
+          action: "accept_request",
           message: "Request status changed",
         })
         .toJS()
@@ -184,7 +184,7 @@ export const accept_request = async (data, cb) => {
         .merge({
           success: false,
           status: 400,
-          action: "send_friend_request",
+          action: "accept_request",
           message: err.message,
         })
         .toJS()
@@ -192,9 +192,17 @@ export const accept_request = async (data, cb) => {
   }
 };
 
-//to do
 export const get_user_list = async (data, cb) => {
   try {
+    const users = await User.findAll({
+      attributes: ["name", "created_at", "profile_photo", "id"],
+      where: {
+        is_active: true,
+      },
+      limit: Number(data.limit) || 10,
+      offset: Number(data.offset) || 0,
+    });
+
     return cb(
       null,
       response_structure
@@ -202,7 +210,8 @@ export const get_user_list = async (data, cb) => {
           success: true,
           status: 200,
           action: "get_user_list",
-          message: "Request status changed",
+          message: "Request successful",
+          data: users,
         })
         .toJS()
     );
@@ -223,14 +232,42 @@ export const get_user_list = async (data, cb) => {
 
 export const get_friends_list = async (data, cb) => {
   try {
+    const friendUsers = await Friend.findAll({
+      where: {
+        is_friend: true,
+        [Op.or]: [{ follower: data.user.id }, { following: data.user.id }],
+      },
+      include: [
+        {
+          model: User,
+          as: "FollowerUser",
+          attributes: ["id", "name", "profile_photo", "created_at"],
+        },
+        {
+          model: User,
+          as: "FollowingUser",
+          attributes: ["id", "name", "profile_photo", "created_at"],
+        },
+      ],
+    });
+
+    const friendDetails = friendUsers.map((friend) => {
+      if (friend.follower === data.user.id) {
+        return friend.FollowingUser;
+      } else {
+        return friend.FollowerUser;
+      }
+    });
+
     return cb(
       null,
       response_structure
         .merge({
           success: true,
           status: 200,
-          action: "get_user_list",
-          message: "Request status changed",
+          action: "get_friends_list",
+          message: "Request successful",
+          data: friendDetails,
         })
         .toJS()
     );
@@ -241,7 +278,7 @@ export const get_friends_list = async (data, cb) => {
         .merge({
           success: false,
           status: 400,
-          action: "get_user_list",
+          action: "get_friends_list",
           message: err.message,
         })
         .toJS()
@@ -249,6 +286,7 @@ export const get_friends_list = async (data, cb) => {
   }
 };
 
+//to do
 export const get_friend_profile = async (data, cb) => {
   try {
     return cb(

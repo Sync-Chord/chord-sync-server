@@ -202,7 +202,7 @@ export const register_user = async (data, cb) => {
     const { password, ...rest } = new_user.dataValues;
 
     const token = create_token({
-      _id: rest.id,
+      id: rest.id,
       name: rest.name,
       email: rest.email,
       age: rest.age,
@@ -261,7 +261,7 @@ export const sign_in = async (data, cb) => {
     const { password, ...rest } = user_found.dataValues;
 
     const token = create_token({
-      _id: rest.id,
+      id: rest.id,
       name: rest.name,
       email: rest.email,
       age: rest.age,
@@ -405,7 +405,7 @@ export const sign_in_by_otp = async (data, cb) => {
     const { password, ...rest } = user.dataValues;
 
     const token = create_token({
-      _id: rest.id,
+      id: rest.id,
       name: rest.name,
       email: rest.email,
       age: rest.age,
