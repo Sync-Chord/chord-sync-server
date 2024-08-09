@@ -12,7 +12,6 @@ const schema = mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now,
-    expires: "10m",
   },
 });
 

@@ -181,6 +181,7 @@ export const respond_to_friend_request = async (data, cb) => {
 };
 
 export const get_user_list = async (data, cb) => {
+  // friend list user
   try {
     const [sub_query_res] = await sequelize.query(`
       SELECT DISTINCT
