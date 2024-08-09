@@ -31,6 +31,11 @@ const Friend = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    status: {
+      type: DataTypes.STRING,
+      defaultValue: "pending",
+      values: ["pending", "accepted"],
+    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: Date.now(),
