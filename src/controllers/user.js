@@ -1,6 +1,8 @@
-import User from "../models/postgres/User";
-import Friend from "../models/postgres/Friends";
-import { Op, where } from "sequelize";
+import User from "../models/postgres/User.js";
+import Friend from "../models/postgres/Friends.js";
+import { Op, Sequelize } from "sequelize";
+import sequelize from "../database/postgres.js";
+import response_structure from "../utils/response.js";
 
 export const edit_user_profile = async (data, cb) => {
   try {
@@ -74,38 +76,34 @@ export const edit_user_profile = async (data, cb) => {
 
 export const send_friend_request = async (data, cb) => {
   try {
-    if (!data.following) throw new Error("Id Missing");
+    if (!data.following) throw new Error("Following ID is missing");
 
-    const found = await User.findOne({
+    const existing_request = await Friend.findOne({
       where: {
-        [Op.and]: [
-          {
-            [Op.or]: [{ following: data.following }, { follower: data.user.id }],
-          },
-          {
-            [Op.or]: [{ follower: data.following }, { following: data.user.id }],
-          },
+        [Op.or]: [
+          { follower: data.user.id, following: data.following },
+          { follower: data.following, following: data.user.id },
         ],
       },
     });
 
-    if (found && found.is_friend) {
-      throw new Error("Alreday added to your friend list");
+    if (existing_request) {
+      if (existing_request.status === "accepted") {
+        throw new Error("Already friends");
+      }
+      if (existing_request.follower === data.user.id) {
+        throw new Error("Request already sent");
+      }
+      if (existing_request.following === data.user.id) {
+        throw new Error("Friend request already received");
+      }
     }
 
-    if (found && !found.is_friend && found.follower === data.user.id)
-      throw new Error("Request already sent");
-
-    if (found && !found.is_friend && found.following === data.user.id)
-      throw new Error("Friend request already sent from user to you");
-
-    const new_request = new Friend({
+    await Friend.create({
       follower: data.user.id,
       following: data.following,
-      is_friend: false,
+      status: "pending",
     });
-
-    await new_request.save();
 
     return cb(
       null,
@@ -119,7 +117,7 @@ export const send_friend_request = async (data, cb) => {
         .toJS()
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return cb(
       response_structure
         .merge({
@@ -133,37 +131,27 @@ export const send_friend_request = async (data, cb) => {
   }
 };
 
-export const accept_request = async (data, cb) => {
+export const respond_to_friend_request = async (data, cb) => {
   try {
-    if (!data.request_id || !data.hasOwnProperty(data.is_friend)) throw new Error("Params missing");
+    if (!data.request_id || !data.hasOwnProperty("accept")) throw new Error("Params missing");
 
-    const found = await Friend.findOne({
+    const request = await Friend.findOne({
       where: {
         id: data.request_id,
       },
     });
 
-    if (!found) throw new Error("Request not found");
+    if (!request) throw new Error("Request not found");
 
-    if (found.is_friend) throw new Error("Already added to friends list");
+    if (request.status === "accepted") throw new Error("Already added to friends list");
 
-    if (data.is_friend) {
-      await Friend.update(
-        {
-          is_friend: true,
-        },
-        {
-          where: {
-            id: data.request_id,
-          },
-        }
-      );
-    } else {
-      await Friend.destroy({
-        where: {
-          id: data.request_id,
-        },
+    if (data.accept) {
+      await request.update({
+        status: "accepted",
+        is_friend: true,
       });
+    } else {
+      await request.destroy();
     }
 
     return cb(
@@ -172,19 +160,19 @@ export const accept_request = async (data, cb) => {
         .merge({
           success: true,
           status: 200,
-          action: "send_friend_request",
+          action: "respond_to_friend_request",
           message: "Request status changed",
         })
         .toJS()
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return cb(
       response_structure
         .merge({
           success: false,
           status: 400,
-          action: "send_friend_request",
+          action: "respond_to_friend_request",
           message: err.message,
         })
         .toJS()
@@ -192,28 +180,61 @@ export const accept_request = async (data, cb) => {
   }
 };
 
-//to do
 export const get_user_list = async (data, cb) => {
   try {
+    const [sub_query_res] = await sequelize.query(`
+      SELECT DISTINCT
+        CASE
+          WHEN "follower" = ${data.user.id} THEN "following"
+          ELSE "follower"
+        END AS user_id
+      FROM "Friends"
+      WHERE ("follower" = ${data.user.id} OR "following" = ${data.user.id})
+        AND "status" IN ('accepted', 'pending')
+    `);
+
+    const excluded_user_ids = sub_query_res.map((row) => row.user_id);
+
+    const whereClause = {
+      id: {
+        [Op.notIn]: [...excluded_user_ids, data.user.id],
+      },
+      is_active: true,
+    };
+
+    if (data.keyword) {
+      whereClause.name = {
+        [Op.iLike]: `%${data.keyword}%`,
+      };
+    }
+
+    const users = await User.findAll({
+      attributes: ["id", "name", "email", "profile_photo", [sequelize.literal("NULL"), "status"]],
+      where: whereClause,
+      limit: Number(data.limit) || 10,
+      offset: Number(data.offset) || 0,
+    });
+
     return cb(
       null,
       response_structure
         .merge({
           success: true,
           status: 200,
-          action: "get_user_list",
-          message: "Request status changed",
+          action: "get_filtered_users",
+          message: "Request successful",
+          data: users,
         })
         .toJS()
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return cb(
       response_structure
         .merge({
           success: false,
           status: 400,
-          action: "get_user_list",
+          action: "get_filtered_users",
           message: err.message,
         })
         .toJS()
@@ -223,25 +244,56 @@ export const get_user_list = async (data, cb) => {
 
 export const get_friends_list = async (data, cb) => {
   try {
+    const friends = await Friend.findAll({
+      where: {
+        [Op.or]: [
+          { follower: data.user.id, status: "accepted" },
+          { following: data.user.id, status: "accepted" },
+        ],
+      },
+      include: [
+        {
+          model: User,
+          as: "FollowerUser",
+          attributes: ["id", "name", "email", "profile_photo"],
+        },
+        {
+          model: User,
+          as: "FollowingUser",
+          attributes: ["id", "name", "email", "profile_photo"],
+        },
+      ],
+    });
+
+    const friendsData = friends.map((friend) => {
+      const is_follower = friend.follower === data.user.id;
+      return {
+        ...(is_follower ? friend.FollowingUser : friend.FollowerUser).toJSON(),
+        status: friend.status,
+        friendId: friend.id,
+      };
+    });
+
     return cb(
       null,
       response_structure
         .merge({
           success: true,
           status: 200,
-          action: "get_user_list",
-          message: "Request status changed",
+          action: "get_friends",
+          message: "Request successful",
+          data: friendsData,
         })
         .toJS()
     );
   } catch (err) {
-    console.log(err);
+    console.error(err);
     return cb(
       response_structure
         .merge({
           success: false,
           status: 400,
-          action: "get_user_list",
+          action: "get_friends",
           message: err.message,
         })
         .toJS()
@@ -249,6 +301,132 @@ export const get_friends_list = async (data, cb) => {
   }
 };
 
+export const get_requests = async (data, cb) => {
+  try {
+    const currentUserId = data.user.id;
+
+    const sentRequests = await Friend.findAll({
+      where: {
+        follower: currentUserId,
+        status: "pending",
+      },
+      include: [
+        {
+          model: User,
+          as: "FollowingUser",
+          attributes: ["id", "name", "email", "profile_photo"],
+        },
+      ],
+    });
+
+    const receivedRequests = await Friend.findAll({
+      where: {
+        following: currentUserId,
+        status: "pending",
+      },
+      include: [
+        {
+          model: User,
+          as: "FollowerUser",
+          attributes: ["id", "name", "email", "profile_photo"],
+        },
+      ],
+    });
+
+    const requests = {
+      sent: sentRequests.map((request) => ({
+        id: request.id,
+        status: request.status,
+        user: request.FollowingUser,
+      })),
+      received: receivedRequests.map((request) => ({
+        id: request.id,
+        status: request.status,
+        user: request.FollowerUser,
+      })),
+    };
+
+    return cb(
+      null,
+      response_structure
+        .merge({
+          success: true,
+          status: 200,
+          action: "get_requests",
+          message: "Requests retrieved successfully",
+          data: requests,
+        })
+        .toJS()
+    );
+  } catch (err) {
+    console.error(err);
+    return cb(
+      response_structure
+        .merge({
+          success: false,
+          status: 400,
+          action: "get_requests",
+          message: err.message,
+        })
+        .toJS()
+    );
+  }
+};
+
+export const delete_request = async (data, cb) => {
+  try {
+    const currentUserId = data.user.id;
+    const requestId = data.request_id;
+
+    if (!requestId) {
+      throw new Error("Request ID is missing");
+    }
+
+    const request = await Friend.findOne({
+      where: {
+        id: requestId,
+        follower: currentUserId,
+        status: "pending",
+      },
+    });
+
+    if (!request) {
+      throw new Error("Request not found or you do not have permission to delete this request");
+    }
+
+    await Friend.destroy({
+      where: {
+        id: requestId,
+      },
+    });
+
+    return cb(
+      null,
+      response_structure
+        .merge({
+          success: true,
+          status: 200,
+          action: "delete_request",
+          message: "Request deleted successfully",
+        })
+        .toJS()
+    );
+  } catch (err) {
+    console.error(err);
+    return cb(
+      response_structure
+        .merge({
+          success: false,
+          status: 400,
+          action: "delete_request",
+          message: err.message,
+        })
+        .toJS()
+    );
+  }
+};
+
+//to do
 export const get_friend_profile = async (data, cb) => {
   try {
     return cb(

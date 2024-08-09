@@ -1,19 +1,19 @@
-//module imports
+// module imorts
 import { DataTypes } from "sequelize";
-
-//datebase imports
 import sequelize from "../../database/postgres.js";
-
-//model imports
 import User from "./User.js";
 
 const Friend = sequelize.define(
   "Friends",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     follower: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      primaryKey: true,
       references: {
         model: User,
         key: "id",
@@ -31,6 +31,11 @@ const Friend = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    status: {
+      type: DataTypes.STRING,
+      defaultValue: "pending",
+      values: ["pending", "accepted"],
+    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: Date.now(),
@@ -42,5 +47,11 @@ const Friend = sequelize.define(
   },
   { timestamps: false }
 );
+
+User.hasMany(Friend, { foreignKey: "follower", as: "Followers" });
+User.hasMany(Friend, { foreignKey: "following", as: "Following" });
+
+Friend.belongsTo(User, { foreignKey: "follower", as: "FollowerUser" });
+Friend.belongsTo(User, { foreignKey: "following", as: "FollowingUser" });
 
 export default Friend;

@@ -25,7 +25,9 @@ connectMongoDB();
 (async () => {
   try {
     await sequelize.authenticate();
-    await sequelize.sync();
+
+    await sequelize.sync({ force: false });
+    console.log("Database synchronized.");
     console.log("Postgres Connected");
   } catch (error) {
     console.error("Error connecting to PostgreSQL database:", error);
@@ -40,10 +42,12 @@ app.get("/health_check", (req, res) => {
 //routes import
 import auth_route from "./src/routes/auth.js";
 import playlist_route from "./src/routes/playlist.js";
+import user_route from "./src/routes/user.js";
 
 //routes
 app.use("/auth", auth_route);
-app.use("/auth", playlist_route);
+app.use("/playlist", playlist_route);
+app.use("/user", user_route);
 
 //server
 app.listen(process.env.PORT, () => {
