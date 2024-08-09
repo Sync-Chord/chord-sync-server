@@ -13,7 +13,9 @@ import { Op } from "sequelize";
 
 // constant variables
 const email_regex = /^[a-z0-9]+@[a-z]+\.[a-z]{2,3}$/;
-const phone_number_regex = /^(\+?\d{1,2}\s?)?(\(?\d{3}\)?[\s.-]?)?\d{3}[\s.-]?\d{4}$/;
+//   /^(\+?\d{1,2}\s?)?(\(?\d{3}\)?[\s.-]?)?\d{3}[\s.-]?\d{4}$/ 
+//   /^(\+91|\+91\-|0)?[789]\d{9}$/
+const phone_number_regex = /^[0]?[789]\d{9}$/;
 
 export const generate_otp_register = async (data, cb) => {
   try {
