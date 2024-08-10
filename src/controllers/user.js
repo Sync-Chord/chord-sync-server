@@ -8,6 +8,10 @@ export const edit_user_profile = async (data, cb) => {
   try {
     const update_data = {};
 
+    if (data.file_url) {
+      update_data.profile_photo = data.file_url;
+    }
+
     if (data.email) {
       const found = await User.findOne({
         where: {
@@ -266,7 +270,7 @@ export const get_friends_list = async (data, cb) => {
       ],
     });
 
-    const friendsData = friends.map((friend) => {
+    const friends_data = friends.map((friend) => {
       const is_follower = friend.follower === data.user.id;
       return {
         ...(is_follower ? friend.FollowingUser : friend.FollowerUser).toJSON(),
@@ -283,7 +287,7 @@ export const get_friends_list = async (data, cb) => {
           status: 200,
           action: "get_friends",
           message: "Request successful",
-          data: friendsData,
+          data: friends_data,
         })
         .toJS()
     );
@@ -304,11 +308,9 @@ export const get_friends_list = async (data, cb) => {
 
 export const get_requests = async (data, cb) => {
   try {
-    const currentUserId = data.user.id;
-
-    const sentRequests = await Friend.findAll({
+    const sent_requests = await Friend.findAll({
       where: {
-        follower: currentUserId,
+        follower: data.user.id,
         status: "pending",
       },
       include: [
@@ -320,9 +322,9 @@ export const get_requests = async (data, cb) => {
       ],
     });
 
-    const receivedRequests = await Friend.findAll({
+    const received_request = await Friend.findAll({
       where: {
-        following: currentUserId,
+        following: data.user.id,
         status: "pending",
       },
       include: [
@@ -335,12 +337,12 @@ export const get_requests = async (data, cb) => {
     });
 
     const requests = {
-      sent: sentRequests.map((request) => ({
+      sent: sent_requests.map((request) => ({
         id: request.id,
         status: request.status,
         user: request.FollowingUser,
       })),
-      received: receivedRequests.map((request) => ({
+      received: received_request.map((request) => ({
         id: request.id,
         status: request.status,
         user: request.FollowerUser,
@@ -376,17 +378,14 @@ export const get_requests = async (data, cb) => {
 
 export const delete_request = async (data, cb) => {
   try {
-    const currentUserId = data.user.id;
-    const requestId = data.request_id;
-
-    if (!requestId) {
+    if (!data.request_id) {
       throw new Error("Request ID is missing");
     }
 
     const request = await Friend.findOne({
       where: {
-        id: requestId,
-        follower: currentUserId,
+        id: data.request_id,
+        follower: data.user.id,
         status: "pending",
       },
     });
@@ -397,7 +396,7 @@ export const delete_request = async (data, cb) => {
 
     await Friend.destroy({
       where: {
-        id: requestId,
+        id: data.request_id,
       },
     });
 

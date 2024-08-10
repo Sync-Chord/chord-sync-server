@@ -1,5 +1,6 @@
 //module imports
 import express from "express";
+import multer from "multer";
 
 //function imports
 import {
@@ -14,19 +15,83 @@ import {
 
 //util imports
 import authenticator from "../utils/authenticator.js";
+import { admin } from "../utils/firebase_config.js";
+const bucket = admin.storage().bucket();
+
+// multer configuration
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // file size
+});
+
+const upload_file = async (req, res, next) => {
+  try {
+    if (req.file) {
+      const file_name = `profiles/${req.user.id}/${req.file.originalname}_${Date.now()}`;
+      const file = bucket.file(file_name);
+
+      const fileStream = file.createWriteStream({
+        metadata: {
+          contentType: req.file.mimetype,
+        },
+      });
+
+      await new Promise((resolve, reject) => {
+        fileStream.on("error", (err) => {
+          console.error("Error uploading file:", err);
+          reject(err);
+        });
+
+        fileStream.on("finish", async () => {
+          try {
+            await file.makePublic();
+            resolve();
+          } catch (error) {
+            console.error("Error making file public:", error);
+            reject(error);
+          }
+        });
+
+        fileStream.end(req.file.buffer);
+      });
+
+      const url = `https://storage.googleapis.com/${bucket.name}/${file_name}`;
+      req.file_url = url;
+
+      next();
+    } else {
+      next();
+    }
+  } catch (err) {
+    res.status(400).send({
+      success: false,
+      status: 400,
+      action: "upload_file",
+      message: err.message,
+    });
+  }
+};
 
 const router = express.Router();
 
-router.patch("/edit_user_profile", authenticator, (req, res) => {
-  const data = { ...req.body };
-  data.user = req.user;
-  edit_user_profile(data, (error, response) => {
-    if (error) {
-      return res.status(error.status).send(error);
-    }
-    return res.status(response.status).send(response);
-  });
-});
+router.patch(
+  "/edit_user_profile",
+  authenticator,
+  upload.single("file"),
+  upload_file,
+  (req, res) => {
+    const data = JSON.parse(req.body.update_data);
+    data.file_url = req.file_url;
+    data.user = req.user;
+
+    edit_user_profile(data, (error, response) => {
+      if (error) {
+        return res.status(error.status).send(error);
+      }
+      return res.status(response.status).send(response);
+    });
+  }
+);
 
 router.post("/send_friend_request", authenticator, (req, res) => {
   const data = { ...req.body };
