@@ -20,7 +20,7 @@ router.post("/create_palylist", authenticator, (req, res) => {
   });
 });
 
-router.patch("/add_song_tp_palylist", authenticator, (req, res) => {
+router.patch("/add_song_to_palylist", authenticator, (req, res) => {
   const data = { ...req.body };
   data.user = req.user;
   add_song_to_playlist(data, (error, response) => {

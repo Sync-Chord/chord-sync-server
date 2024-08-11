@@ -42,6 +42,11 @@ const User = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+    unique_id: {
+      type: DataTypes.STRING,
+      values: ["email", "phone_number"],
+      allowNull: false,
+    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: Date.now(),

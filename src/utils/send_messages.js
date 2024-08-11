@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 
 export const send_message_to_phone = (to, message) => {
   return client.messages.create({
-    to: to,
+    to: `+91${to}`,
     body: message,
     messagingServiceSid: process.env.TWILLIO_MESSAGING_SERVICE_ID,
   });

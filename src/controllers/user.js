@@ -46,10 +46,12 @@ export const edit_user_profile = async (data, cb) => {
       update_data.name = data.name;
     }
 
-    await User.update(update_data, {
+    const result = await User.update(update_data, {
       where: {
         id: data.user.id,
       },
+      returning: true,
+      plain: true,
     });
 
     return cb(
@@ -60,6 +62,7 @@ export const edit_user_profile = async (data, cb) => {
           status: 200,
           action: "edit_user_profile",
           message: "User Updated Successfully",
+          data: result[1],
         })
         .toJS()
     );
@@ -137,7 +140,8 @@ export const send_friend_request = async (data, cb) => {
 
 export const respond_to_friend_request = async (data, cb) => {
   try {
-    if (!data.request_id || !data.hasOwnProperty("accept")) throw new Error("Params missing");
+    if (!data.request_id || !data.hasOwnProperty("accept"))
+      throw new Error("Params missing");
 
     const request = await Friend.findOne({
       where: {
@@ -147,7 +151,8 @@ export const respond_to_friend_request = async (data, cb) => {
 
     if (!request) throw new Error("Request not found");
 
-    if (request.status === "accepted") throw new Error("Already added to friends list");
+    if (request.status === "accepted")
+      throw new Error("Already added to friends list");
 
     if (data.accept) {
       await request.update({
@@ -214,7 +219,13 @@ export const get_user_list = async (data, cb) => {
     }
 
     const users = await User.findAll({
-      attributes: ["id", "name", "email", "profile_photo", [sequelize.literal("NULL"), "status"]],
+      attributes: [
+        "id",
+        "name",
+        "email",
+        "profile_photo",
+        [sequelize.literal("NULL"), "status"],
+      ],
       where: whereClause,
       limit: Number(data.limit) || 10,
       offset: Number(data.offset) || 0,
@@ -391,7 +402,9 @@ export const delete_request = async (data, cb) => {
     });
 
     if (!request) {
-      throw new Error("Request not found or you do not have permission to delete this request");
+      throw new Error(
+        "Request not found or you do not have permission to delete this request"
+      );
     }
 
     await Friend.destroy({
