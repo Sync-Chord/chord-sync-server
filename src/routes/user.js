@@ -11,6 +11,7 @@ import {
   get_friends_list,
   get_requests,
   delete_request,
+  get_user_data,
 } from "../controllers/user.js";
 
 //util imports
@@ -106,6 +107,7 @@ router.post("/send_friend_request", authenticator, (req, res) => {
 
 router.patch("/accept_request", authenticator, (req, res) => {
   const data = { ...req.body };
+  console.log(data);
   data.user = req.user;
   respond_to_friend_request(data, (error, response) => {
     if (error) {
@@ -141,6 +143,17 @@ router.get("/get_requests", authenticator, (req, res) => {
   const data = { ...req.query };
   data.user = req.user;
   get_requests(data, (error, response) => {
+    if (error) {
+      return res.status(error.status).send(error);
+    }
+    return res.status(response.status).send(response);
+  });
+});
+
+router.get("/get_user_data", authenticator, (req, res) => {
+  const data = { ...req.query };
+  data.user = req.user;
+  get_user_data(data, (error, response) => {
     if (error) {
       return res.status(error.status).send(error);
     }

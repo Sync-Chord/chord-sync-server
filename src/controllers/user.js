@@ -140,8 +140,7 @@ export const send_friend_request = async (data, cb) => {
 
 export const respond_to_friend_request = async (data, cb) => {
   try {
-    if (!data.request_id || !data.hasOwnProperty("accept"))
-      throw new Error("Params missing");
+    if (!data.request_id || !data.hasOwnProperty("accept")) throw new Error("Params missing");
 
     const request = await Friend.findOne({
       where: {
@@ -151,8 +150,7 @@ export const respond_to_friend_request = async (data, cb) => {
 
     if (!request) throw new Error("Request not found");
 
-    if (request.status === "accepted")
-      throw new Error("Already added to friends list");
+    if (request.status === "accepted") throw new Error("Already added to friends list");
 
     if (data.accept) {
       await request.update({
@@ -190,7 +188,6 @@ export const respond_to_friend_request = async (data, cb) => {
 };
 
 export const get_user_list = async (data, cb) => {
-  // friend list user
   try {
     const [sub_query_res] = await sequelize.query(`
       SELECT DISTINCT
@@ -219,13 +216,7 @@ export const get_user_list = async (data, cb) => {
     }
 
     const users = await User.findAll({
-      attributes: [
-        "id",
-        "name",
-        "email",
-        "profile_photo",
-        [sequelize.literal("NULL"), "status"],
-      ],
+      attributes: ["id", "name", "email", "profile_photo", [sequelize.literal("NULL"), "status"]],
       where: whereClause,
       limit: Number(data.limit) || 10,
       offset: Number(data.offset) || 0,
@@ -402,9 +393,7 @@ export const delete_request = async (data, cb) => {
     });
 
     if (!request) {
-      throw new Error(
-        "Request not found or you do not have permission to delete this request"
-      );
+      throw new Error("Request not found or you do not have permission to delete this request");
     }
 
     await Friend.destroy({
@@ -432,6 +421,117 @@ export const delete_request = async (data, cb) => {
           success: false,
           status: 400,
           action: "delete_request",
+          message: err.message,
+        })
+        .toJS()
+    );
+  }
+};
+
+export const get_user_data = async (data, cb) => {
+  try {
+    let response_data;
+
+    if (data.type === "friends") {
+      const friends = await Friend.findAll({
+        where: {
+          [Op.or]: [
+            { follower: data.user.id, status: "accepted" },
+            { following: data.user.id, status: "accepted" },
+          ],
+        },
+        include: [
+          {
+            model: User,
+            as: "FollowerUser",
+            attributes: ["id", "name", "email", "profile_photo"],
+          },
+          {
+            model: User,
+            as: "FollowingUser",
+            attributes: ["id", "name", "email", "profile_photo"],
+          },
+        ],
+      });
+
+      const friends_data = friends.map((friend) => {
+        const is_follower = friend.follower === data.user.id;
+        return {
+          ...(is_follower ? friend.FollowingUser : friend.FollowerUser).toJSON(),
+          status: friend.status,
+          friendId: friend.id,
+        };
+      });
+
+      response_data = friends_data;
+    } else if (data.type === "sent") {
+      const sent_requests = await Friend.findAll({
+        where: {
+          follower: data.user.id,
+          status: "pending",
+        },
+        include: [
+          {
+            model: User,
+            as: "FollowingUser",
+            attributes: ["id", "name", "email", "profile_photo"],
+          },
+        ],
+      });
+
+      const sent_data = sent_requests.map((request) => ({
+        id: request.id,
+        status: request.status,
+        user: request.FollowingUser,
+      }));
+
+      response_data = sent_data;
+    } else if (data.type === "requests") {
+      const received_requests = await Friend.findAll({
+        where: {
+          following: data.user.id,
+          status: "pending",
+        },
+        include: [
+          {
+            model: User,
+            as: "FollowerUser",
+            attributes: ["id", "name", "email", "profile_photo"],
+          },
+        ],
+      });
+
+      const received_data = received_requests.map((request) => ({
+        id: request.id,
+        status: request.status,
+        user: request.FollowerUser,
+      }));
+
+      response_data = received_data;
+    } else {
+      throw new Error("Invalid type");
+    }
+
+    return cb(
+      null,
+      response_structure
+        .merge({
+          success: true,
+          status: 200,
+          action: "get_user_data",
+          message: "Request successful",
+          data: response_data,
+        })
+        .toJS()
+    );
+  } catch (err) {
+    console.error(err);
+    return cb(
+      response_structure
+        .merge({
+          success: false,
+          status: 400,
+          action: "get_user_data",
           message: err.message,
         })
         .toJS()
