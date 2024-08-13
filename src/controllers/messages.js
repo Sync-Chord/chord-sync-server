@@ -134,8 +134,8 @@ export const get_messages = async (data, cb) => {
       chat_id: data.chat_id,
     })
       .sort({ createdAt: -1 })
+      .skip(data.offset || 0)
       .limit(data.limit || 10)
-      .offset(data.offset || 0);
 
     return cb(
       null,
