@@ -538,32 +538,3 @@ export const get_user_data = async (data, cb) => {
     );
   }
 };
-
-//to do
-export const get_friend_profile = async (data, cb) => {
-  try {
-    return cb(
-      null,
-      response_structure
-        .merge({
-          success: true,
-          status: 200,
-          action: "get_user_list",
-          message: "Request status changed",
-        })
-        .toJS()
-    );
-  } catch (err) {
-    console.log(err);
-    return cb(
-      response_structure
-        .merge({
-          success: false,
-          status: 400,
-          action: "get_user_list",
-          message: err.message,
-        })
-        .toJS()
-    );
-  }
-};

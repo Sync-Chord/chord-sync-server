@@ -1,31 +1,40 @@
-//module imports
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import bodyParser from "body-parser";
 import morgan from "morgan";
+import http from "http";
 
-const app = express();
-
-dotenv.config();
-
-//database imports
+// Import your modules
 import connectMongoDB from "./src/database/mongo.js";
 import sequelize from "./src/database/postgres.js";
+import socketHandler from "./src/socket.js";
 
-//middlewares
+// Import routes
+import auth_route from "./src/routes/auth.js";
+import playlist_route from "./src/routes/playlist.js";
+import user_route from "./src/routes/user.js";
+
+const app = express();
+dotenv.config();
+
+// Middlewares
 app.use(cors());
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ extended: false, limit: "50mb" }));
 app.use(morgan("dev"));
 
-//database connections
-connectMongoDB();
+// Create an HTTP server
+const server = http.createServer(app);
 
+// Initialize socket.io
+socketHandler(server);
+
+// Database connections
+connectMongoDB();
 (async () => {
   try {
     await sequelize.authenticate();
-
     await sequelize.sync({ force: false });
     console.log("Database synchronized.");
     console.log("Postgres Connected");
@@ -34,22 +43,17 @@ connectMongoDB();
   }
 })();
 
-//health check
+// Health check
 app.get("/health_check", (req, res) => {
   res.status(200).send("Working fine!!");
 });
 
-//routes import
-import auth_route from "./src/routes/auth.js";
-import playlist_route from "./src/routes/playlist.js";
-import user_route from "./src/routes/user.js";
-
-//routes
+// Use routes
 app.use("/auth", auth_route);
 app.use("/playlist", playlist_route);
 app.use("/user", user_route);
 
-//server
-app.listen(process.env.PORT, () => {
+// Start the server
+server.listen(process.env.PORT, () => {
   console.log(`Server connected at Port: ${process.env.PORT}`);
 });
