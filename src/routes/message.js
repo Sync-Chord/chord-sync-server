@@ -34,7 +34,7 @@ router.post("/create_chat", authenticator, (req, res) => {
   })
 })
 
-router.post("/get_chats", authenticator, (req, res) => {
+router.get("/get_chats", authenticator, (req, res) => {
   const data = { ...req.query }
   data.user = req.user
   get_chats(data, (error, response) => {
