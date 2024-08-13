@@ -1,6 +1,7 @@
+import mongoose from "mongoose";
 import Chat from "../models/mongodb/Chat.js";
 import Message from "../models/mongodb/Message.js";
-import response_structure from "../utils/response.js"
+import response_structure from "../utils/response.js";
 
 export const create_chat = async (data, cb) => {
   try {
@@ -118,6 +119,44 @@ export const save_message = async (data, cb) => {
           success: false,
           status: 400,
           action: "save_message",
+          message: err.message,
+        })
+        .toJS()
+    );
+  }
+};
+
+export const get_messages = async (data, cb) => {
+  try {
+    if (!data.chat_id) throw new Error("params missing");
+
+    const result = await Message.find({
+      chat_id: data.chat_id,
+    })
+      .sort({ createdAt: -1 })
+      .limit(data.limit || 10)
+      .offset(data.offset || 0);
+
+    return cb(
+      null,
+      response_structure
+        .merge({
+          success: true,
+          status: 200,
+          action: "get_messages",
+          message: "ok",
+          data: result,
+        })
+        .toJS()
+    );
+  } catch (err) {
+    console.error(err);
+    return cb(
+      response_structure
+        .merge({
+          success: false,
+          status: 400,
+          action: "get_messages",
           message: err.message,
         })
         .toJS()
