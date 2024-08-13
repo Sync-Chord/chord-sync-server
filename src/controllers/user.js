@@ -452,6 +452,8 @@ export const get_user_data = async (data, cb) => {
             attributes: ["id", "name", "email", "profile_photo"],
           },
         ],
+        limit:data.limit||10,
+        offset:data.offset||0
       });
 
       const friends_data = friends.map((friend) => {
@@ -477,6 +479,8 @@ export const get_user_data = async (data, cb) => {
             attributes: ["id", "name", "email", "profile_photo"],
           },
         ],
+        limit:data.limit||10,
+        offset:data.offset||0
       });
 
       const sent_data = sent_requests.map((request) => ({
@@ -499,7 +503,9 @@ export const get_user_data = async (data, cb) => {
             attributes: ["id", "name", "email", "profile_photo"],
           },
         ],
-      });
+        limit: data.limit || 10,
+        offset: data.offset || 0,
+      })
 
       const received_data = received_requests.map((request) => ({
         id: request.id,
