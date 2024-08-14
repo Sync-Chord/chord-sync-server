@@ -20,7 +20,12 @@ const socketHandler = (server) => {
             socket.emit("error_message", err.message);
           } else {
             console.log("Message saved:", response);
-            io.emit("receive_message", response.data);
+
+            io.emit("receive_message", {
+              message: data.message,
+              sender: data.user.id,
+              chat_id: data.chat_id,
+            });
           }
         });
       } catch (error) {

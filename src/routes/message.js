@@ -7,17 +7,6 @@ import authenticator from "../utils/authenticator.js";
 
 const router = express.Router();
 
-router.post("/save_message", (req, res) => {
-  const data = { ...req.body };
-  data.user = req.user;
-  save_message(data, (error, response) => {
-    if (error) {
-      return res.status(error.status).send(error);
-    }
-    return res.status(response.status).send(response);
-  });
-});
-
 router.post("/create_chat", authenticator, (req, res) => {
   const data = { ...req.body };
   console.log(data);
