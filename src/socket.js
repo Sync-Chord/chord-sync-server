@@ -118,7 +118,7 @@ const socketHandler = (server) => {
             socket.emit("error_message", err.message);
           } else {
             console.log("Message saved:", response);
-            io.to(data.chat_id).emit("receive_message", {
+            io.emit("receive_message", {
               message: data.message,
               sender: data.user.id,
               chat_id: data.chat_id,
